@@ -46,12 +46,15 @@ Model::Model(const char* filename) {
 		Vec3f v = verts_[i];
         if (v.x < min_x) min_x = v.x;
         if (v.x > max_x) max_x = v.x;
-        if (v.z < min_y) min_y = v.y;
-        if (v.z > max_y) max_y = v.y;
+        if (v.y < min_y) min_y = v.y;
+        if (v.y > max_y) max_y = v.y;
+        if (v.z < min_z) min_z = v.z;
+        if (v.z > max_z) max_z = v.z;
     }
 
     cx = (min_x + max_x) / 2.0f;
     cy = (min_y + max_y) / 2.0f;
+    cz = (min_z + max_z) / 2.0f;
 
     mw = max_x - min_x;
     mh = max_y - min_y;

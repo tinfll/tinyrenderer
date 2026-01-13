@@ -14,9 +14,9 @@ constexpr TGAColor white = { 255, 255, 255, 255 };
 constexpr TGAColor Black = { 0, 0, 0, 255 };
 
 
-int width = 800;
-int height = 800;
-float scale = 400.0f;
+int width = 4096;
+int height = 4096;
+float scale = 2048.0f;
 TGAImage image(width, height, TGAImage::RGB);
 bool a = false, b = false;
 TGAImage z(width, height, TGAImage::GRAYSCALE);
@@ -66,11 +66,12 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color)
     }
 }
 
-Vec3f project(Vec3f v, float cy, float cx) {
+Vec3f project(Vec3f v, float cy, float cx, float cz) {
     float x = (v.x - cx) * scale + width / 2.0f ;
     float y = (v.y + cy) * scale + height / 2.0f;
+    float z = (v.z + cz) * scale;
 	if (!a) { std::cout << x << "," << y << std::endl; a = true; }
-    return { x , y , v.z};
+    return { x , y , z};
 }
 
 
@@ -94,14 +95,12 @@ void rasterization(Vec3f a0, Vec3f a1, Vec3f a2, TGAColor ccol) {
         for (int j = miny; j < maxy; j++) {
             Vec3f p(i + 0.5f, j + 0.5f, 0);
 			Vec3f a = bayZ(a0, a1, a2, p);
-            if (a.x < 0 || a.y < 0 || a.z < 0) continue;		
+            if (a.x < -0.01|| a.y < -0.01 || a.z < -0.01) continue;
 			float zb = (a0.z * a.x + a1.z * a.y + a2.z * a.z);
 			int idx = i + j * width;
                 if (zb > zbuffer[idx]){
 					zbuffer[idx] = zb;
                     image.set(p.x, p.y, ccol);
-                    unsigned char g = static_cast<unsigned char>(200.0f * zbuffer[idx]);
-                    z.set(i, j, { g });
             }
         }
     }
@@ -147,7 +146,7 @@ int main(int argc, char** argv) {
     for (auto& verts_ : qmhs.verts_) {
         if (verts_.z < md) md = verts_.z;
         if (verts_.z > Md) Md = verts_.z;
-        verts_ = project(verts_, qmhs.cy, qmhs.cx);
+        verts_ = project(verts_, qmhs.cy, qmhs.cx, qmhs.cz);
     }
 	std::cout << "Z range: " << md << " to " << Md << std::endl;
 
@@ -177,6 +176,35 @@ int main(int argc, char** argv) {
     image.flip_vertically();
 	image.flip_horizontally();
     image.write_tga_file("image.tga");
+
+    
+    float minz = 0, maxz = 0;
+
+    float clear_value = -std::numeric_limits<float>::max();
+
+    for (int i = 0; i < width * height; i++) {
+        float v = zbuffer[i];
+        if (std::abs(v) < 10000) {
+            if (v < minz) minz = v;
+            if (v > maxz) maxz = v;
+        }
+    }
+
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            float v = zbuffer[x + y * width];
+            if (std::abs(v) >= 10000) 
+                z.set(x, y, { 0, 0, 0, 255 });
+    
+                float normalized = (v - minz) / (maxz - minz);
+                normalized = std::max(0.0f, std::min(1.0f, normalized));
+
+                unsigned char gray = static_cast<unsigned char>(255.0f * normalized);
+                z.set(x, y, { gray });
+            }
+        }
+
+    std::cout << "Detected Z range for visualization: [" << minz << ", " << maxz << "]" << std::endl;
 
 
     z.rotate90();
