@@ -1,7 +1,8 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 
 #pragma pack(push,1)
 struct TGAHeader {
@@ -38,6 +39,7 @@ struct TGAImage {
     void set(const int x, const int y, const TGAColor &c);
     int width()  const;
     int height() const;
+    void rotate90();
 private:
     bool   load_rle_data(std::ifstream &in);
     bool unload_rle_data(std::ofstream &out) const;

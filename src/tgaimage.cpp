@@ -1,6 +1,9 @@
-#include <iostream>
+﻿#include <iostream>
 #include <cstring>
 #include "tgaimage.h"
+
+#include <algorithm>
+#include <utility>
 
 TGAImage::TGAImage(const int w, const int h, const int bpp) : w(w), h(h), bpp(bpp), data(w*h*bpp, 0) {}
 
@@ -198,4 +201,22 @@ int TGAImage::width() const {
 
 int TGAImage::height() const {
     return h;
+}
+
+void TGAImage::rotate90(){
+    std::vector<std::uint8_t> new_data(w * h * bpp);
+
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            int nx = h - 1 - y;
+            int ny = x;
+
+            for (int b = 0; b < bpp; b++) {
+                new_data[(nx + ny * h) * bpp + b] = data[(x + y * w) * bpp + b];
+            }
+        }
+    }
+    data = new_data;
+    std::swap(w, h);
+                                                     
 }
