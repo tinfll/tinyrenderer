@@ -10,12 +10,17 @@
 #include "model.h"
 
 constexpr TGAColor blue = { 255, 128,  64, 255 };
+constexpr TGAColor white = { 255, 255, 255, 255 };
+constexpr TGAColor Black = { 0, 0, 0, 255 };
+
 
 int width = 800;
 int height = 800;
 float scale = 400.0f;
 TGAImage image(width, height, TGAImage::RGB);
 bool a = false, b = false;
+TGAImage z(width, height, TGAImage::GRAYSCALE);
+float* zbuffer = new float[width * height];
 
 
 TGAColor qcolor() {
@@ -34,9 +39,8 @@ TGAColor qcolor() {
     return color;
 }
 
-bool is_inside(Vec2f A, Vec2f B, Vec2f C, Vec2f P);
-float S(Vec2f A, Vec2f B, Vec2f C);
-Vec3f bayZ(Vec2f A, Vec2f B, Vec2f C, Vec2f P);
+float S(Vec3f A, Vec3f B, Vec3f C);
+Vec3f bayZ(Vec3f A, Vec3f B, Vec3f C, Vec3f P);
 
 
 void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color) {
@@ -62,28 +66,19 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color)
     }
 }
 
-Vec2f project(Vec3f v, float cy, float cx) {
+Vec3f project(Vec3f v, float cy, float cx) {
     float x = (v.x - cx) * scale + width / 2.0f ;
     float y = (v.y + cy) * scale + height / 2.0f;
 	if (!a) { std::cout << x << "," << y << std::endl; a = true; }
-    return { x , y };
+    return { x , y , v.z};
 }
 
-float viewtw(float a, float cx) {
-	float x = (a - cx) * scale + width / 2.0f;
-    return x;
-}
-float viewth(float a, float cy) {
-    float y = (a + cy) * scale + width / 2.0f;
-    if (!b) { std::cout << y << std::endl;    b = true; }
-    return y;
-}
 
-float cross_product(Vec2f a, Vec2f b) {
+float cross(Vec2f a, Vec2f b) {
     return a.x * b.y - a.y * b.x;
 }
 
-void rasterization(Vec2f a0, Vec2f a1, Vec2f a2, TGAColor ccol) {
+void rasterization(Vec3f a0, Vec3f a1, Vec3f a2, TGAColor ccol) {
 
     TGAColor rnd;
 	//std::cout << a0.x << "," << a0.y << " " << a1.x << "," << a1.y << " " << a2.x << "," << a2.y << std::endl;
@@ -97,74 +92,84 @@ void rasterization(Vec2f a0, Vec2f a1, Vec2f a2, TGAColor ccol) {
 
     for (int i = minx; i < maxx; i++) {
         for (int j = miny; j < maxy; j++) {
-
-            Vec2f p(i + 0.5f, j + 0.5f);
+            Vec3f p(i + 0.5f, j + 0.5f, 0);
 			Vec3f a = bayZ(a0, a1, a2, p);
-			if (a.x < 0 || a.y < 0 || a.z < 0) continue;
-            if ((a.x > 0 && a.y > 0 && a.z > 0) || (a.x < 0 && a.y < 0 && a.z < 0))
-                image.set(p.x, p.y, ccol);
+            if (a.x < 0 || a.y < 0 || a.z < 0) continue;		
+			float zb = (a0.z * a.x + a1.z * a.y + a2.z * a.z);
+			int idx = i + j * width;
+                if (zb > zbuffer[idx]){
+					zbuffer[idx] = zb;
+                    image.set(p.x, p.y, ccol);
+                    unsigned char g = static_cast<unsigned char>(200.0f * zbuffer[idx]);
+                    z.set(i, j, { g });
+            }
         }
-
     }
 }
 
 
-float S(Vec2f A, Vec2f B, Vec2f C) {
+float S(Vec3f A, Vec3f B, Vec3f C) {
     Vec2f AB = { B.x - A.x, B.y - A.y };
     Vec2f AC = { C.x - A.x, C.y - A.y };
-    return cross_product(AB, AC);
+    return cross(AB, AC);
 }
 
-Vec3f bayZ(Vec2f A, Vec2f B, Vec2f C, Vec2f P) {
+Vec3f bayZ(Vec3f A, Vec3f B, Vec3f C, Vec3f P) {
     Vec2f AB = { B.x - A.x, B.y - A.y };
     Vec2f BC = { C.x - B.x, C.y - B.y };
     Vec2f CA = { A.x - C.x, A.y - C.y };
     Vec2f AC = { C.x - A.x, C.y - A.y };
-    float S = cross_product(AB, AC);
+    float S = cross(AB, AC);
 
     Vec2f AP = { P.x - A.x, P.y - A.y };
     Vec2f BP = { P.x - B.x, P.y - B.y };
     Vec2f CP = { P.x - C.x, P.y - C.y };
 
-    float c1 = cross_product(AB, AP);
-    float c2 = cross_product(BC, BP);
-    float c3 = cross_product(CA, CP);
+    float S1 = cross(AB, AP);
+    float S2 = cross(BC, BP);
+    float S3 = cross(CA, CP);
 
-    float w = c1 / S; // Weight for C
-    float u = c2 / S; // Weight for A
-    float v = c3 / S;
-    //(c1 >= 0 && c2 >= 0 && c3 >= 0) || (c1 <= 0 && c2 <= 0 && c3 <= 0)
-    return Vec3f(w, u, v);
+    float w = S1 / S; // C
+    float u = S2 / S; // A
+    float v = S3 / S;
+
+    return Vec3f(u, v, w);
 }
 
 
 int main(int argc, char** argv) {
     Model qmhs("C:/Users/tinf/Documents/tinyRenderer/build/obj/qmhs/qmhs.obj");
-  
+    float Md = 0, md = 0;
+    for (int i = 0; i < width * height; i++)
+        zbuffer[i] = -std::numeric_limits<float>::max();
+
+    //project vertices
+    for (auto& verts_ : qmhs.verts_) {
+        if (verts_.z < md) md = verts_.z;
+        if (verts_.z > Md) Md = verts_.z;
+        verts_ = project(verts_, qmhs.cy, qmhs.cx);
+    }
+	std::cout << "Z range: " << md << " to " << Md << std::endl;
+
 	//wirefreame rendering
-for (auto& face : qmhs.faces_) {
+    for (auto& face : qmhs.faces_) {
 		std::vector<int> fs = face;
         for (int j = 0; j < fs.size(); j++) {
             int f = fs[j], k = fs[(j + 1) % fs.size()];
-            line(viewtw(qmhs.verts_[f].x, qmhs.cx), viewth(qmhs.verts_[f].y, qmhs.cy),
-                    viewtw(qmhs.verts_[k].x, qmhs.cx), viewth(qmhs.verts_[k].y, qmhs.cy),
+			line(qmhs.verts_[f].x, qmhs.verts_[f].y,
+                 qmhs.verts_[k].x, qmhs.verts_[k].y,
                     image, blue);
         }
 	}
-for (auto& face : qmhs.faces_) {
+    //raster
+    for (auto& face : qmhs.faces_) {
         TGAColor rnd = qcolor();
         std::vector<int> fs = face;
         if (fs.size() == 3)
-            rasterization(project(qmhs.verts_[fs[0]], qmhs.cy, qmhs.cx), 
-                          project(qmhs.verts_[fs[1]], qmhs.cy, qmhs.cx), 
-                          project(qmhs.verts_[fs[2]], qmhs.cy, qmhs.cx), rnd);
+            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], rnd);
         if (fs.size() == 4) {
-            rasterization(project(qmhs.verts_[fs[0]], qmhs.cy, qmhs.cx), 
-                project(qmhs.verts_[fs[1]],qmhs.cy, qmhs.cx), 
-                project(qmhs.verts_[fs[2]],qmhs.cy, qmhs.cx), rnd);
-            rasterization(project(qmhs.verts_[fs[0]], qmhs.cy, qmhs.cx), 
-                project(qmhs.verts_[fs[2]], qmhs.cy, qmhs.cx), 
-                project( qmhs.verts_[fs[3]], qmhs.cy, qmhs.cx),rnd);
+            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], rnd);
+            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[2]], qmhs.verts_[fs[3]],rnd);
         }
    }
     
@@ -172,7 +177,14 @@ for (auto& face : qmhs.faces_) {
     image.flip_vertically();
 	image.flip_horizontally();
     image.write_tga_file("image.tga");
+
+
+    z.rotate90();
+    z.flip_vertically();
+    z.flip_horizontally();
+	z.write_tga_file("z.tga");
     std::cout << "Render finished! output.tga saved." << std::endl;
+    system("start z.tga");
     system("start image.tga");
     return 0;
 }
