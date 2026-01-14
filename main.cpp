@@ -10,6 +10,7 @@
 #include "model.h"
 #include "our_gl.h"
 #include "geometry.h"
+#include "myVector.h"
 
 
 constexpr TGAColor blue = { 255, 128,  64, 255 };
@@ -38,7 +39,7 @@ TGAColor qcolor() {
     color.bgra[1] = g;
     color.bgra[2] = r;
     color.bgra[3] = 255;
-    color.bytespp = 4; 
+    color.bytespp = 4;
 
     return color;
 }
@@ -47,20 +48,20 @@ float S(Vec3f A, Vec3f B, Vec3f C);
 Vec3f bayZ(Vec3f A, Vec3f B, Vec3f C, Vec3f P);
 
 
-void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color) {
+void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
     bool steep = std::abs(ax - bx) < std::abs(ay - by);
-    if(steep) {
+    if (steep) {
         std::swap(ax, ay);
         std::swap(bx, by);
     }
     if (ax > bx) {
         std::swap(ax, bx);
-		std::swap(ay, by);
+        std::swap(ay, by);
     }
     int y = ay;
     int ie = 0;
     for (int x = ax; x <= bx; x++) {
-	    if(steep)    framebuffer.set(y, x, color);
+        if (steep)    framebuffer.set(y, x, color);
         else    framebuffer.set(x, y, color);
         ie += 2 * std::abs(by - ay);
         if (ie > bx - ax) {
@@ -71,18 +72,18 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color)
 }
 
 Vec3f project(Vec3f v, float cy, float cx, float cz) {
-    float x = (v.x - cx) * scale + width / 2.0f ;
+    float x = (v.x - cx) * scale + width / 2.0f;
     float y = (v.y - cy) * scale + height / 2.0f;
     float z = (v.z + cz) * scale;
-	if (!a) { std::cout << x << "," << y << std::endl; a = true; }
-    return { x , y , z};
+    if (!a) { std::cout << x << "," << y << std::endl; a = true; }
+    return { x , y , z };
 }
 
 
 void rasterization(Vec3f a0, Vec3f a1, Vec3f a2, TGAColor ccol) {
 
     TGAColor rnd;
-	//std::cout << a0.x << "," << a0.y << " " << a1.x << "," << a1.y << " " << a2.x << "," << a2.y << std::endl;
+    //std::cout << a0.x << "," << a0.y << " " << a1.x << "," << a1.y << " " << a2.x << "," << a2.y << std::endl;
     int minx_f = std::floor(std::min({ a0.x, a1.x, a2.x }));
     int maxx_f = std::ceil(std::max({ a0.x, a1.x, a2.x }));
     int miny_f = std::floor(std::min({ a0.y, a1.y, a2.y }));
@@ -100,13 +101,13 @@ void rasterization(Vec3f a0, Vec3f a1, Vec3f a2, TGAColor ccol) {
     for (int i = minx; i < maxx; i++) {
         for (int j = miny; j < maxy; j++) {
             Vec3f p(i + 0.5f, j + 0.5f, 0);
-			Vec3f a = bayZ(a0, a1, a2, p);
-            if (a.x < -0.01|| a.y < -0.01 || a.z < -0.01) continue;
-			float zb = (a0.z * a.x + a1.z * a.y + a2.z * a.z);
-			int idx = i + j * width;
-                if (zb >= zbuffer[idx]){
-					zbuffer[idx] = zb;
-                    image.set(p.x, p.y, ccol);
+            Vec3f a = bayZ(a0, a1, a2, p);
+            if (a.x < -0.01 || a.y < -0.01 || a.z < -0.01) continue;
+            float zb = (a0.z * a.x + a1.z * a.y + a2.z * a.z);
+            int idx = i + j * width;
+            if (zb >= zbuffer[idx]) {
+                zbuffer[idx] = zb;
+                image.set(p.x, p.y, ccol);
             }
         }
     }
@@ -114,25 +115,25 @@ void rasterization(Vec3f a0, Vec3f a1, Vec3f a2, TGAColor ccol) {
 
 
 float S(Vec3f A, Vec3f B, Vec3f C) {
-    Vec2f AB (B.x - A.x,B.y - A.y ) ;
-    Vec2f AC ( C.x - A.x, C.y - A.y );
-    return cross(AB , AC);
+    Vec2f AB(B.x - A.x, B.y - A.y);
+    Vec2f AC(C.x - A.x, C.y - A.y);
+    return cross(AB, AC);
 }
 
 Vec3f bayZ(Vec3f A, Vec3f B, Vec3f C, Vec3f P) {
-    Vec2f AB ( B.x - A.x, B.y - A.y );
-    Vec2f BC ( C.x - B.x, C.y - B.y );
-    Vec2f CA ( A.x - C.x, A.y - C.y );
-    Vec2f AC ( C.x - A.x, C.y - A.y );
+    Vec2f AB(B.x - A.x, B.y - A.y);
+    Vec2f BC(C.x - B.x, C.y - B.y);
+    Vec2f CA(A.x - C.x, A.y - C.y);
+    Vec2f AC(C.x - A.x, C.y - A.y);
     float S = cross(AB, AC);
 
-    Vec2f AP ( P.x - A.x, P.y - A.y );
-    Vec2f BP ( P.x - B.x, P.y - B.y );
-    Vec2f CP ( P.x - C.x, P.y - C.y );
+    Vec2f AP(P.x - A.x, P.y - A.y);
+    Vec2f BP(P.x - B.x, P.y - B.y);
+    Vec2f CP(P.x - C.x, P.y - C.y);
 
-    float S1 = cross(AB , AP);
-    float S2 = cross(BC , BP);
-    float S3 = cross(CA , CP);
+    float S1 = cross(AB, AP);
+    float S2 = cross(BC, BP);
+    float S3 = cross(CA, CP);
 
     float w = S1 / S; // C
     float u = S2 / S; // A
@@ -156,35 +157,35 @@ int main(int argc, char** argv) {
         if (verts_.z > Md) Md = verts_.z;
         verts_ = project(verts_, qmhs.cy, qmhs.cx, qmhs.cz);
     }
-	std::cout << "Z range: " << md << " to " << Md << std::endl;
+    std::cout << "Z range: " << md << " to " << Md << std::endl;
 
-	//wirefreame rendering
+    //wirefreame rendering
     for (auto& face : qmhs.faces_) {
-		std::vector<int> fs = face;
+        qmhsV<int> fs = face;
         for (int j = 0; j < fs.size(); j++) {
             int f = fs[j], k = fs[(j + 1) % fs.size()];
-			line(qmhs.verts_[f].x, qmhs.verts_[f].y,
-                 qmhs.verts_[k].x, qmhs.verts_[k].y,
-                    image, blue);
+            line(qmhs.verts_[f].x, qmhs.verts_[f].y,
+                qmhs.verts_[k].x, qmhs.verts_[k].y,
+                image, blue);
         }
-	}
+    }
     //raster
     for (auto& face : qmhs.faces_) {
         TGAColor rnd = qcolor();
-        std::vector<int> fs = face;
+        qmhsV<int> fs = face;
         if (fs.size() == 3)
             rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], rnd);
         if (fs.size() == 4) {
             rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], rnd);
-            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[2]], qmhs.verts_[fs[3]],rnd);
+            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[2]], qmhs.verts_[fs[3]], rnd);
         }
-   }
-    
-   
+    }
+
+
     image.write_tga_file("image.tga");
     system("start image.tga");
-    
-    float minz = std::numeric_limits<float>::max() , maxz = -std::numeric_limits<float>::max();
+
+    float minz = std::numeric_limits<float>::max(), maxz = -std::numeric_limits<float>::max();
 
 
     for (int i = 0; i < width * height; i++) {
@@ -198,24 +199,24 @@ int main(int argc, char** argv) {
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
             float v = zbuffer[x + y * width];
-            if (std::abs(v) >= 1) 
+            if (std::abs(v) >= 1)
                 z.set(x, y, { 0, 0, 0, 255 });
-    
+
             float normalized = (v - minz) / (maxz - minz);
             normalized = std::max(0.0f, std::min(1.0f, normalized));
 
             unsigned char gray = static_cast<unsigned char>(255.0f * normalized);
             z.set(x, y, { gray });
-            }
         }
+    }
 
     std::cout << "Detected Z range for visualization: [" << minz << ", " << maxz << "]" << std::endl;
 
 
-	z.write_tga_file("z.tga");
+    z.write_tga_file("z.tga");
     std::cout << "Render finished! output.tga saved." << std::endl;
     system("start z.tga");
-    
+
 
     return 0;
 }

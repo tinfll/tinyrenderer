@@ -25,7 +25,7 @@ Model::Model(const char* filename) {
                 verts_.push_back(v);
             }
             else if (a == "f") {
-                std::vector<int> fs;
+                qmhsV<int> fs;
                 int f;
                 std::string s;
                 while (ss >> s) {
