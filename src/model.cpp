@@ -20,8 +20,9 @@ Model::Model(const char* filename) {
 
         while (ss >> a) {
             if (a == "v") {
-                Vec3f v;
+                Vec4f v;
                 ss >> v.x >> v.y >> v.z;
+                v.w = 1.0f;
                 verts_.push_back(v);
             }
             else if (a == "f") {
@@ -43,7 +44,7 @@ Model::Model(const char* filename) {
     
 
     for (int i = 0; i < verts_.size(); i++) {
-		Vec3f v = verts_[i];
+		Vec4f v = verts_[i];
         if (v.x < min_x) min_x = v.x;
         if (v.x > max_x) max_x = v.x;
         if (v.y < min_y) min_y = v.y;
@@ -55,6 +56,10 @@ Model::Model(const char* filename) {
     cx = (min_x + max_x) / 2.0f;
     cy = (min_y + max_y) / 2.0f;
     cz = (min_z + max_z) / 2.0f;
+
+    dx = (-min_x + max_x) / 2.0f;
+    dy = (-min_y + max_y) / 2.0f;
+    dz = (-min_z + max_z) / 2.0f;
 
     mw = max_x - min_x;
     mh = max_y - min_y;
