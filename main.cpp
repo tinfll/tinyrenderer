@@ -12,22 +12,12 @@
 #include "geometry.h"
 #include "myVector.h"
 
+extern qmhsV<float> zbuffer;
 
 constexpr TGAColor blue = { 255, 128,  64, 255 };
 constexpr TGAColor white = { 255, 255, 255, 255 };
 constexpr TGAColor Black = { 0, 0, 0, 255 };
 const float MY_PI = 3.1415926535;
-
-
-int width = 800;
-int height = 800;
-float scale = 400.f;
-TGAImage image(width, height, TGAImage::RGB);
-bool a = false, b = false;
-TGAImage z(width, height, TGAImage::GRAYSCALE);
-float* zbuffer = new float[width * height];
-
-
 TGAColor qcolor() {
     int base = 180;
     int b = (base + 40) + (std::rand() % 36); if (b > 255) b = 255;
@@ -43,12 +33,32 @@ TGAColor qcolor() {
 
     return color;
 }
+struct RandomShader : public IShader {
+    const Model& model;
+    Matrix4f uniform_M;
+    TGAColor color = {};
+    RandomShader(const Model& m, Matrix4f M) : model(m), uniform_M(M)  {}
 
-float S(Vec4f A, Vec4f B, Vec4f C);
-Vec4f bayZ(Vec4f A, Vec4f B, Vec4f C, Vec4f P);
+    virtual Vec4f vertex(const int iface, int nthvert)  {
+        Vec4f v = model.verts_[model.faces_[iface][nthvert]];
+        Vec4f gl_Vertex = { v.x, v.y, v.z, 1.0f };
+        Vec4f gl_Position = modelv * perspo * gl_Vertex;
+
+        return uniform_M * gl_Vertex;
+    }
+    
+    virtual std::pair<bool, TGAColor> fragment(const Vec3f bar) const {
+        TGAColor c = qcolor();
+        return { false, c };
+    }
+
+};
 
 
-void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
+
+
+
+/*void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
     bool steep = std::abs(ax - bx) < std::abs(ay - by);
     if (steep) {
         std::swap(ax, ay);
@@ -69,121 +79,37 @@ void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color)
             ie -= 2 * (bx - ax);
         }
     }
-}
-
-Vec4f project(Vec4f v, float cy, float cx, float cz, float dy, float dx, float dz) {
-    Matrix4f T = { 1, 0, 0, -v.x,
-                      0, 1, 0, -v.y,
-                      0, 0, 1, -v.z,
-                      0, 0, 0, 1};
-    //暂无matrix M视角问题
-    Matrix4f O = { 1 / dx, 0, 0, -cx,
-                   0, 1 / dy , 0, -cy,
-                   0, 0, 1 / dz, -cz,
-                   0, 0, 0, 1 };
-
-    Matrix4f O2 = { 1, 0, 0, -cx,
-                   0, 1 , 0, -cy,
-                   0, 0, 1, -cz,
-                   0, 0, 1, 1 };
-
-    Matrix4f vp = { width / 2.0f, 0, 0, 0,
-        0, height / 2.0f, 0,  0,
-        0, 0, scale, 0,
-        0, 0, 0, 1 };
-    float f = 3.0f;
-    float c = 1 / (1 - v.z / f);
-    Matrix4f perspo = { 1, 0 ,0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, c, 1 };
-
-    Vec4f n = perspo * vp * O * T *  v;
-    if (!a) { std::cout << n.x << "," << n.y << std::endl; a = true; }
-    return n;
-}
+}*/
 
 
-
-void rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAColor ccol) {
-
-    TGAColor rnd;
-    //std::cout << a0.x << "," << a0.y << " " << a1.x << "," << a1.y << " " << a2.x << "," << a2.y << std::endl;
-    int minx_f = std::floor(std::min({ a0.x, a1.x, a2.x }));
-    int maxx_f = std::ceil(std::max({ a0.x, a1.x, a2.x }));
-    int miny_f = std::floor(std::min({ a0.y, a1.y, a2.y }));
-    int maxy_f = std::ceil(std::max({ a0.y, a1.y, a2.y }));
-
-    int minx = std::max(0, minx_f);
-    int maxx = std::min(width - 1, maxx_f);
-    int miny = std::max(0, miny_f);
-    int maxy = std::min(height - 1, maxy_f);
-
-
-    float s = S(a0, a1, a2);
-    if (s < 0) return;
-
-    for (int i = minx; i < maxx; i++) {
-        for (int j = miny; j < maxy; j++) {
-            Vec4f p(i + 0.5f, j + 0.5f, 0, 1);
-            Vec4f a = bayZ(a0, a1, a2, p);
-            if (a.x < -0.01 || a.y < -0.01 || a.z < -0.01) continue;
-            float zb = (a0.z * a.x + a1.z * a.y + a2.z * a.z);
-            int idx = i + j * width;
-            if (zb >= zbuffer[idx]) {
-                zbuffer[idx] = zb;
-                image.set(p.x, p.y, ccol);
-            }
-        }
-    }
-}
-
-
-float S(Vec4f A, Vec4f B, Vec4f C) {
-    Vec2f AB(B.x - A.x, B.y - A.y);
-    Vec2f AC(C.x - A.x, C.y - A.y);
-    return cross(AB, AC);
-}
-
-Vec4f bayZ(Vec4f A, Vec4f B, Vec4f C, Vec4f P) {
-    Vec2f AB(B.x - A.x, B.y - A.y);
-    Vec2f BC(C.x - B.x, C.y - B.y);
-    Vec2f CA(A.x - C.x, A.y - C.y);
-    Vec2f AC(C.x - A.x, C.y - A.y);
-    float S = cross(AB, AC);
-
-    Vec2f AP(P.x - A.x, P.y - A.y);
-    Vec2f BP(P.x - B.x, P.y - B.y);
-    Vec2f CP(P.x - C.x, P.y - C.y);
-
-    float S1 = cross(AB, AP);
-    float S2 = cross(BC, BP);
-    float S3 = cross(CA, CP);
-
-    float w = S1 / S; // C
-    float u = S2 / S; // A
-    float v = S3 / S;
-
-    return Vec4f(u, v, w, 1);
-}
 
 
 int main(int argc, char** argv) {
     Model qmhs("unity.obj");
-    //Model qmhs("../obj/qmhs/qmhs.obj");
+    tinfgl render;
 
+    constexpr int width = 800;
+    constexpr int height = 800;
+     Vec3f eye = { -1, 0, 2 }; 
+    Vec3f center = { 0, 0, 0 }; 
+     Vec3f  up = { 0, 1, 0 }; 
+
+    TGAImage image(width, height, TGAImage::RGB);
+    bool a = false, b = false;
+    TGAImage z(width, height, TGAImage::GRAYSCALE);
+
+    float scale = 400.0f;
+   
+
+    render.lookat(eye, center, up);
     float Md = 0, md = 0;
-    for (int i = 0; i < width * height; i++)
-        zbuffer[i] = -std::numeric_limits<float>::max();
+    render.init_perspective(7);
+    render.init_viewport(width, height, width, height);
+    render.initZ(width, height);
 
-    //project vertices
-    for (auto& verts_ : qmhs.verts_) {
-        
-        verts_ = project(verts_, qmhs.cy, qmhs.cx, qmhs.cz, qmhs.dy, qmhs.dx, qmhs.cz);
-        verts_.x = verts_.x / verts_.w;
-        verts_.y = verts_.y / verts_.w;
-        verts_.z = verts_.z / verts_.w;
-    }   
+    Matrix4f M = viewp * perspo * modelv;
+
+    RandomShader shader(qmhs, M);
 
     //wirefreame rendering
     for (auto& face : qmhs.faces_) {
@@ -199,11 +125,12 @@ int main(int argc, char** argv) {
     for (auto& face : qmhs.faces_) {
         TGAColor rnd = qcolor();
         qmhsV<int> fs = face;
+        
         if (fs.size() == 3)
-            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], rnd);
+            render.rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], image, z, width, height, shader);
         if (fs.size() == 4) {
-            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], rnd);
-            rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[2]], qmhs.verts_[fs[3]], rnd);
+            render.rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], image, z, width, height, shader);
+            render.rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[2]], qmhs.verts_[fs[3]], image, z, width, height, shader);
         }
     }
 

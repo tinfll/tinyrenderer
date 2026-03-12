@@ -43,6 +43,16 @@ public:
 		data = nV;
 		m_capacity = newcap;
 	}
+	void resize(size_t new_size, const T& val = T()) {
+		if (new_size > m_capacity) reverse(new_size);
+
+		for (size_t i = m_size; i < new_size; ++i)
+			data[i] = val;
+		m_size = new_size;
+	}
+	void clear() {
+		m_size = 0;
+	}
 	void push_back(const T& value) {
 		if (m_size >= m_capacity) {
 			size_t newcap = (m_capacity == 0) ? 1 : 2 * m_capacity;

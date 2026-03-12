@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cassert>
 #include <iostream>
+#include <type_traits>
 
 
 // 向量定义
@@ -28,6 +29,7 @@ template <typename T> struct vec<3, T> {
     const T& operator[](const size_t i) const { assert(i < 3); return i <= 0 ? x : (1 == i ? y : z); }
     float norm() const { return std::sqrt(x * x + y * y + z * z); }
     vec<3, T>& normalize(T l = 1) { *this = (*this) * (l / norm()); return *this; }
+    vec<2, T> xy() { return {x, y}; }
 };
 
 template <typename T> struct vec<4, T> {
@@ -36,11 +38,9 @@ template <typename T> struct vec<4, T> {
     vec(T X, T Y, T Z, T W) : x(X), y(Y), z(Z), w(W) {}
     T& operator[](const size_t i) { assert(i < 4); return i <= 0 ? x : (1 == i ? y : (2 == i ? z : w)); }
     const T& operator[](const size_t i) const { assert(i < 4); return i <= 0 ? x : (1 == i ? y : (2 == i ? z : w)); }
+    vec<2, T> xy() { return { x, y }; }
 };
 
-// =========================================================================
-// 向量运算 (Vector Operations)
-// =========================================================================
 
 template <size_t Dim, typename T> vec<Dim, T> operator+(vec<Dim, T> lhs, const vec<Dim, T>& rhs) {
     for (size_t i = 0; i < Dim; i++) lhs[i] = lhs[i] + rhs[i];
@@ -64,28 +64,36 @@ template <size_t Dim, typename T> T dot(const vec<Dim, T>& lhs, const vec<Dim, T
     return lhs * rhs;
 }
 
-// 标量乘法
-template <size_t Dim, typename T, typename U> vec<Dim, T> operator*(vec<Dim, T> lhs, const U& rhs) {
-    for (size_t i = 0; i < Dim; i++) lhs[i] = lhs[i] * rhs;
-    return lhs;
-}
 
-template <size_t Dim, typename T, typename U> vec<Dim, T> operator*(const U& lhs, vec<Dim, T> rhs) {
+
+template <size_t Dim, typename T, typename U,
+    typename = std::enable_if_t<std::is_arithmetic<U>::value>>
+    vec<Dim, T> operator*(const U& lhs, vec<Dim, T> rhs) {
     for (size_t i = 0; i < Dim; i++) rhs[i] = rhs[i] * lhs;
     return rhs;
 }
 
-template <size_t Dim, typename T, typename U> vec<Dim, T> operator/(vec<Dim, T> lhs, const U& rhs) {
+template <size_t Dim, typename T, typename U,
+    typename = std::enable_if_t<std::is_arithmetic<U>::value>>
+    vec<Dim, T> operator*(vec<Dim, T> lhs, const U& rhs) {
+    for (size_t i = 0; i < Dim; i++) lhs[i] = lhs[i] * rhs;
+    return lhs;
+}
+
+template <size_t Dim, typename T, typename U,
+    typename = std::enable_if_t<std::is_arithmetic<U>::value>>
+    vec<Dim, T> operator/(vec<Dim, T> lhs, const U& rhs) {
     for (size_t i = 0; i < Dim; i++) lhs[i] = lhs[i] / rhs;
     return lhs;
 }
+
 
 template <size_t Dim, typename T> std::ostream& operator<<(std::ostream& out, const vec<Dim, T>& v) {
     for (unsigned int i = 0; i < Dim; i++) out << v[i] << (i < Dim - 1 ? " " : "");
     return out;
 }
 
-// 辅助函数
+
 
 template <typename T> T cross(vec<2, T> v1, vec<2, T> v2) {
     return v1.x * v2.y - v1.y * v2.x;
@@ -96,7 +104,7 @@ template <typename T> vec<3, T> cross(vec<3, T> v1, vec<3, T> v2) {
 }
 
 
-// 矩阵定义 (Matrix)
+
 
 
 template <size_t row, size_t col, typename T> class mat;
@@ -125,7 +133,11 @@ public:
             ret[j] = rows[j][i];
         return ret;
     }
-    
+    float det() const{
+        return (*this)[0][0] * ((*this)[1][1] * (*this)[2][2] - (*this)[1][2] * (*this)[2][1]) -
+            (*this)[0][1] * ((*this)[1][0] * (*this)[2][2] - (*this)[1][2] * (*this)[2][0]) +
+            (*this)[0][2] * ((*this)[1][0] * (*this)[2][1] - (*this)[1][1] * (*this)[2][0]);
+    }
 
     static mat<row, col, T> identity() {
         mat<row, col, T> I;
@@ -137,16 +149,14 @@ public:
 
 };
 
-template <size_t row, size_t col, typename T>
-vec<row, T> operator*(const mat<row, col, T>& lhs, const vec<col, T>& rhs) {
+template <size_t row, size_t col, typename T> vec<row, T> operator*(const mat<row, col, T>& lhs, const vec<col, T>& rhs) {
     vec<row, T> ret;
     for (size_t i = 0; i < row; i++) 
         ret[i] = rhs * lhs[i];
     return ret;
 }
 
-template<size_t row1, size_t col1, size_t col2, typename T>
-mat<row1, col2, T> operator*(const mat<row1, col1, T>& lhs, const mat<col1, col2, T>& rhs) {
+template<size_t row1, size_t col1, size_t col2, typename T> mat<row1, col2, T> operator*(const mat<row1, col1, T>& lhs, const mat<col1, col2, T>& rhs) {
     mat<row1, col2, T> res;
 
     for (size_t i = 0; i < row1; i++)
@@ -157,7 +167,6 @@ mat<row1, col2, T> operator*(const mat<row1, col1, T>& lhs, const mat<col1, col2
 }
 
 
-// 类型别名
 typedef vec<2, float> Vec2f;
 typedef vec<3, float> Vec3f;
 typedef vec<4, float> Vec4f;
@@ -165,3 +174,5 @@ typedef vec<2, int>   Vec2i;
 typedef vec<3, int>   Vec3i;
 typedef mat<3, 3, float> Matrix3f;
 typedef mat<4, 4, float> Matrix4f;
+
+
