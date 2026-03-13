@@ -40,9 +40,6 @@ Model::Model(const char* filename) {
         }
     }
 
-
-    
-
     for (int i = 0; i < verts_.size(); i++) {
 		Vec4f v = verts_[i];
         if (v.x < min_x) min_x = v.x;

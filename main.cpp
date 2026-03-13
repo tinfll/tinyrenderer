@@ -54,10 +54,6 @@ struct RandomShader : public IShader {
 
 };
 
-
-
-
-
 /*void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
     bool steep = std::abs(ax - bx) < std::abs(ay - by);
     if (steep) {
@@ -81,9 +77,6 @@ struct RandomShader : public IShader {
     }
 }*/
 
-
-
-
 int main(int argc, char** argv) {
     Model qmhs("unity.obj");
     tinfgl render;
@@ -91,7 +84,7 @@ int main(int argc, char** argv) {
     constexpr int width = 800;
     constexpr int height = 800;
      Vec3f eye = { -1, 0, 2 }; 
-    Vec3f center = { 0, 0, 0 }; 
+     Vec3f center = { 0, 0, 0 }; 
      Vec3f  up = { 0, 1, 0 }; 
 
     TGAImage image(width, height, TGAImage::RGB);
@@ -103,8 +96,8 @@ int main(int argc, char** argv) {
 
     render.lookat(eye, center, up);
     float Md = 0, md = 0;
-    render.init_perspective(7);
-    render.init_viewport(width, height, width, height);
+    render.init_perspective((eye-center).norm());
+    render.init_viewport(width/16, height/16, width*7/8, height*7/8);
     render.initZ(width, height);
 
     Matrix4f M = viewp * perspo * modelv;
@@ -122,15 +115,22 @@ int main(int argc, char** argv) {
         }
     }
     //raster
-    for (auto& face : qmhs.faces_) {
+    for (int i = 0; i < qmhs.faces_.size(); ++i) {
         TGAColor rnd = qcolor();
-        qmhsV<int> fs = face;
+        qmhsV<int> fs = qmhs.faces_[i];
         
-        if (fs.size() == 3)
-            render.rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], image, z, width, height, shader);
-        if (fs.size() == 4) {
-            render.rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[1]], qmhs.verts_[fs[2]], image, z, width, height, shader);
-            render.rasterization(qmhs.verts_[fs[0]], qmhs.verts_[fs[2]], qmhs.verts_[fs[3]], image, z, width, height, shader);
+        if (fs.size() == 3) {
+            Vec4f clip_coords[3];
+            for (int j = 0; j < 3; j++)
+                clip_coords[j] = shader.vertex(i, j);
+            render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2], image, z, width, height, shader);
+        }
+            if (fs.size() == 4) {
+            Vec4f clip_coords[4];
+            for (int j = 0; j < 4; j++)
+                clip_coords[j] = shader.vertex(i, j);
+            render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2], image, z, width, height, shader);
+            render.rasterization(clip_coords[0], clip_coords[2], clip_coords[3], image, z, width, height, shader);
         }
     }
 

@@ -11,20 +11,20 @@ void tinfgl::lookat(const Vec3f eye, const Vec3f center, const Vec3f up) {
     Vec3f l = (cross(up, n)).normalize();
     Vec3f m = (cross(n, l)).normalize();
     modelv = Matrix4f{ l.x,l.y,l.z,0.0f, m.x,m.y,m.z,0.0f, n.x,n.y,n.z,0.0f, 0.0f,0.0f,0.0f,1.0f } *
-        Matrix4f{1, 0, 0, -center.x,  0,1,0,-center.y , 0,0,1,-center.z , 0,0,0,1 };
+        Matrix4f{1,0,0,-center.x,  0,1,0,-center.y , 0,0,1,-center.z , 0,0,0,1 };
 }
 
 void tinfgl::init_perspective(const float f) {
     perspo = { 1, 0 ,0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0,
-            0, 0, f, 1 };
+            0, 0, -1/f, 1 };
 }
 
 void tinfgl::init_viewport(const int x, const int y, const int width, const int height) {
-    viewp = { width / 2.0f, 0, 0, width / 2.0f,
-        0, height / 2.0f, 0, height / 2.0f,
-        0, 0, 1, width / 2.0f,
+    viewp = { width / 2.0f, 0, 0, x+width / 2.0f,
+        0, height / 2.0f, 0, y+height / 2.0f,
+        0, 0, 1, 0,
         0, 0, 0, 1 };
 }
 
@@ -75,7 +75,7 @@ void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color)
 
 void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAImage& image, TGAImage& z, int width, int height, IShader& shader) {
     Vec4f ndc[3] = { a0/a0.w, a1/a1.w, a2/a2.w };
-    Vec2f screeen[3] = { (viewp * a0).xy(), (viewp * a1).xy(), (viewp * a2).xy()};
+    Vec2f screeen[3] = { (a0).xy(), (a1).xy(), (a2).xy()};
 
     //std::cout << a0.x << "," << a0.y << " " << a1.x << "," << a1.y << " " << a2.x << "," << a2.y << std::endl;
     int minx_f = std::floor(std::min({ a0.x, a1.x, a2.x }));
@@ -90,7 +90,7 @@ void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAImage& image, TGAIma
 
     for (int i = std::max(0, minx_f); i < std::min(width - 1, maxx_f); i++) {
         for (int j = std::max(0, miny_f); j < std::min(height - 1, maxy_f); j++) {
-            Vec3f a = ABC * Vec3f(static_cast<float>(i), static_cast<float>(j),1);
+            Vec3f a = ABC.invert() * Vec3f(static_cast<float>(i), static_cast<float>(j), 1.);
             if (a.x < -0.01 || a.y < -0.01 || a.z < -0.01) continue;
             float zb = a * Vec3f(ndc[0].z, ndc[1].z, ndc[2].z);
             int idx = i + j * width;

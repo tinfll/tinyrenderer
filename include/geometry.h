@@ -146,6 +146,41 @@ public:
                 I[i][j] = (i == j) ? 1 : 0;
         return I;
     }
+    mat<col, row, T> transpose() const {
+        mat<col, row, T> res;
+        for (size_t i = 0; i < row; i++)
+            for (size_t j = 0; j < col; j++)
+                res[j][i] = (*this)[i][j];
+        return res;
+    }
+
+    mat<row, col, T> invert() const {
+        mat<row, col, T> res;
+        float d = det();
+        if (std::abs(d) < 1e-6) return res;
+
+        res[0][0] = (*this)[1][1] * (*this)[2][2] - (*this)[1][2] * (*this)[2][1];
+        res[0][1] = (*this)[0][2] * (*this)[2][1] - (*this)[0][1] * (*this)[2][2];
+        res[0][2] = (*this)[0][1] * (*this)[1][2] - (*this)[0][2] * (*this)[1][1];
+
+        res[1][0] = (*this)[1][2] * (*this)[2][0] - (*this)[1][0] * (*this)[2][2];
+        res[1][1] = (*this)[0][0] * (*this)[2][2] - (*this)[0][2] * (*this)[2][0];
+        res[1][2] = (*this)[0][2] * (*this)[1][0] - (*this)[0][0] * (*this)[1][2];
+
+        res[2][0] = (*this)[1][0] * (*this)[2][1] - (*this)[1][1] * (*this)[2][0];
+        res[2][1] = (*this)[0][1] * (*this)[2][0] - (*this)[0][0] * (*this)[2][1];
+        res[2][2] = (*this)[0][0] * (*this)[1][1] - (*this)[0][1] * (*this)[1][0];
+
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                res[i][j] /= d;
+
+        return res;
+    }
+
+    mat<row, col, T> invert_transpose() const {
+        return invert().transpose();
+    }
 
 };
 
