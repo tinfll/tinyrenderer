@@ -22,6 +22,8 @@ public:
 	void init_perspective(const float f);
 	void init_viewport(const int x, const int y, const int width, const int height);
 	void initZ(int width, int height);
-	void rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAImage& image, TGAImage& z, int width, int height
+	void rasterization(Vec4f a0, Vec4f a1, Vec4f a2,
+		TGAImage& image, TGAImage& z, int width, int height
 	, IShader &shader);
+	void drawZ(qmhsV<float>& zbuffer, int width, int height, TGAImage z);
 };

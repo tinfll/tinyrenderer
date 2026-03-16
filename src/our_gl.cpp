@@ -73,7 +73,8 @@ void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color)
 }
 
 
-void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAImage& image, TGAImage& z, int width, int height, IShader& shader) {
+void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2, 
+                            TGAImage& image, TGAImage& z, int width, int height, IShader& shader) {
     Vec4f ndc[3] = { a0/a0.w, a1/a1.w, a2/a2.w };
     Vec2f screeen[3] = { (a0).xy(), (a1).xy(), (a2).xy()};
 
@@ -91,6 +92,7 @@ void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAImage& image, TGAIma
     for (int i = std::max(0, minx_f); i < std::min(width - 1, maxx_f); i++) {
         for (int j = std::max(0, miny_f); j < std::min(height - 1, maxy_f); j++) {
             Vec3f a = ABC.invert() * Vec3f(static_cast<float>(i), static_cast<float>(j), 1.);
+            
             if (a.x < -0.01 || a.y < -0.01 || a.z < -0.01) continue;
             float zb = a * Vec3f(ndc[0].z, ndc[1].z, ndc[2].z);
             int idx = i + j * width;
@@ -106,5 +108,41 @@ void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2, TGAImage& image, TGAIma
             }
         }
     }
+}
+
+void::tinfgl::drawZ(qmhsV<float>& zbuffer, int width, int height, TGAImage z) {
+    
+    float minz = std::numeric_limits<float>::max(), maxz = -std::numeric_limits<float>::max();
+
+
+    for (int i = 0; i < width * height; i++) {
+        float v = zbuffer[i];
+        if (std::abs(v) < 1e5) {
+            if (v < minz) minz = v;
+            if (v > maxz) maxz = v;
+        }
+    }
+
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            float v = zbuffer[x + y * width];
+            if (std::abs(v) >= 1)
+                z.set(x, y, { 0, 0, 0, 255 });
+
+            float normalized = (v - minz) / (maxz - minz);
+            normalized = std::max(0.0f, std::min(1.0f, normalized));
+
+            unsigned char gray = static_cast<unsigned char>(255.0f * normalized);
+            z.set(x, y, { gray });
+        }
+    }
+
+    std::cout << "Detected Z range for visualization: [" << minz << ", " << maxz << "]" << std::endl;
+
+
+    z.write_tga_file("z.tga");
+    std::cout << "Render finished! output.tga saved." << std::endl;
+    system("start z.tga");
+
 }
 

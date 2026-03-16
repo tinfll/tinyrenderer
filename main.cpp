@@ -14,10 +14,12 @@
 
 extern qmhsV<float> zbuffer;
 
+
 constexpr TGAColor blue = { 255, 128,  64, 255 };
 constexpr TGAColor white = { 255, 255, 255, 255 };
 constexpr TGAColor Black = { 0, 0, 0, 255 };
 const float MY_PI = 3.1415926535;
+
 TGAColor qcolor() {
     int base = 180;
     int b = (base + 40) + (std::rand() % 36); if (b > 255) b = 255;
@@ -33,6 +35,7 @@ TGAColor qcolor() {
 
     return color;
 }
+
 struct RandomShader : public IShader {
     const Model& model;
     Matrix4f uniform_M;
@@ -41,41 +44,76 @@ struct RandomShader : public IShader {
 
     virtual Vec4f vertex(const int iface, int nthvert)  {
         Vec4f v = model.verts_[model.faces_[iface][nthvert]];
-        Vec4f gl_Vertex = { v.x, v.y, v.z, 1.0f };
+        Vec4f gl_Vertex = { v.x, v.y, v.z, 0.0f };
         Vec4f gl_Position = modelv * perspo * gl_Vertex;
-
         return uniform_M * gl_Vertex;
     }
-    
+    virtual Vec4f vertexN(const int iface, int nthvert) {
+        Vec4f v = model.vertsN_[model.faces_[iface][nthvert]];
+        Vec4f gl_VertexN = { v.x, v.y, v.z, 1.0f };
+        Vec4f gl_Position = modelv * perspo * gl_VertexN;
+        return uniform_M * gl_VertexN;
+    }
+
     virtual std::pair<bool, TGAColor> fragment(const Vec3f bar) const {
         TGAColor c = qcolor();
         return { false, c };
     }
-
 };
 
-/*void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
-    bool steep = std::abs(ax - bx) < std::abs(ay - by);
-    if (steep) {
-        std::swap(ax, ay);
-        std::swap(bx, by);
+struct PhongShader : IShader {
+    const Model& model;
+    Matrix4f uniform_M;
+    Matrix4f modelM;
+    Vec3f L;
+    Vec3f cameraPos;
+    Vec3f N;
+    PhongShader(const Model& m, Matrix4f M, Matrix4f modelM, Vec3f L, Vec3f cameraPos) : model(m), uniform_M(M), modelM(modelM), L(L), cameraPos(cameraPos){}
+    
+    mat<3, 3, float> PV;//worldPos
+    //mat<3, 3, float> NV;
+
+    virtual Vec4f vertex(const int iface, int nthvert) override{
+        Vec4f v = model.verts_[model.faces_[iface][nthvert]];
+        //Vec4f vn = model.vertsN_[model.faces_[iface][nthvert]];
+        PV[0][nthvert] = (modelM * v).x;
+        PV[1][nthvert] = (modelM * v).y;
+        PV[2][nthvert] = (modelM * v).z;
+
+        //NV[0][nthvert] = (modelM * vn).x;
+        //NV[1][nthvert] = (modelM * vn).y;
+        //NV[2][nthvert] = (modelM * vn).x;
+        
+        Vec4f gl_Vertex = { v.x, v.y, v.z, 1.0f };
+        Vec4f gl_Position = modelv * perspo * gl_Vertex;
+        return uniform_M * gl_Vertex;
+
     }
-    if (ax > bx) {
-        std::swap(ax, bx);
-        std::swap(ay, by);
+    virtual std::pair<bool, TGAColor> fragment(const Vec3f bar) const{
+        Vec3f P = Vec3f(PV * bar);
+        //Vec3f N = Vec3f(NV * bar).normalize();
+        Vec3f V = (P - cameraPos).normalize();
+        float cosineA = dot(N, L);//diffuse
+        float diffuse = cosineA;
+        Vec3f R = 2 * N * cosineA - L;
+        //float cosineB = dot(R, V) > 0 ? 0 : cosineB;
+        float specular = std::pow(std::max(0.0f, dot(R, V)), 32.0f);
+
+        float ambient = 0.1f;
+        float i = ambient + diffuse * 0.6f + specular * 0.3f;
+        TGAColor basecolor = qcolor();
+        TGAColor specularColor = white;
+
+        TGAColor finColor = {
+            static_cast<unsigned char>(std::min(255.0f, 255.0f * i)),
+            static_cast<unsigned char>(std::min(255.0f, 255.0f * i)),
+            static_cast<unsigned char>(std::min(255.0f, 255.0f * i)),
+            255
+        };
+
+        return { false, finColor };
     }
-    int y = ay;
-    int ie = 0;
-    for (int x = ax; x <= bx; x++) {
-        if (steep)    framebuffer.set(y, x, color);
-        else    framebuffer.set(x, y, color);
-        ie += 2 * std::abs(by - ay);
-        if (ie > bx - ax) {
-            y += (by > ay) ? 1 : -1;
-            ie -= 2 * (bx - ax);
-        }
-    }
-}*/
+};
 
 int main(int argc, char** argv) {
     Model qmhs("unity.obj");
@@ -88,12 +126,10 @@ int main(int argc, char** argv) {
      Vec3f  up = { 0, 1, 0 }; 
 
     TGAImage image(width, height, TGAImage::RGB);
-    bool a = false, b = false;
     TGAImage z(width, height, TGAImage::GRAYSCALE);
-
+    bool a = false, b = false;
     float scale = 400.0f;
    
-
     render.lookat(eye, center, up);
     float Md = 0, md = 0;
     render.init_perspective((eye-center).norm());
@@ -102,7 +138,10 @@ int main(int argc, char** argv) {
 
     Matrix4f M = viewp * perspo * modelv;
 
-    RandomShader shader(qmhs, M);
+    //RandomShader shader(qmhs, M);
+    Vec3f L = { 1.0, 1.0, 1.0 };
+    PhongShader phong(qmhs, M, modelv, L, eye);
+
 
     //wirefreame rendering
     for (auto& face : qmhs.faces_) {
@@ -114,62 +153,35 @@ int main(int argc, char** argv) {
                 image, blue);
         }
     }
+    //directional Light
     //raster
     for (int i = 0; i < qmhs.faces_.size(); ++i) {
         TGAColor rnd = qcolor();
         qmhsV<int> fs = qmhs.faces_[i];
+        Vec4f v0 = qmhs.verts_[fs[0]];
+        Vec4f v1 = qmhs.verts_[fs[1]];
+        Vec4f v2 = qmhs.verts_[fs[2]];
+
+        Vec3f AB = { v1.x - v0.x, v1.y - v0.y, v1.z - v0.z };
+        Vec3f AC = { v2.x - v0.x, v2.y - v0.y, v2.z - v0.z };
+        Vec3f N0 = cross(AB, AC).normalize();
+        Vec4f N4 = Vec4f(N0.x, N0.y, N0.z, 0.0f);
+        N4 = modelv.invert_transpose() * N4;
+        phong.N = Vec3f(N4.x, N4.y, N4.z);
         
-        if (fs.size() == 3) {
-            Vec4f clip_coords[3];
-            for (int j = 0; j < 3; j++)
-                clip_coords[j] = shader.vertex(i, j);
-            render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2], image, z, width, height, shader);
-        }
-            if (fs.size() == 4) {
-            Vec4f clip_coords[4];
-            for (int j = 0; j < 4; j++)
-                clip_coords[j] = shader.vertex(i, j);
-            render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2], image, z, width, height, shader);
-            render.rasterization(clip_coords[0], clip_coords[2], clip_coords[3], image, z, width, height, shader);
-        }
+        Vec4f clip_coords[3];
+        Vec4f clip_coordsn[3];
+        for (int j = 0; j < 3; j++) 
+            clip_coords[j] = phong.vertex(i, j);
+            
+        render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2],
+                            image, z, width, height, phong);
+       
     }
 
 
     image.write_tga_file("image.tga");
     system("start image.tga");
-
-    float minz = std::numeric_limits<float>::max(), maxz = -std::numeric_limits<float>::max();
-
-
-    for (int i = 0; i < width * height; i++) {
-        float v = zbuffer[i];
-        if (std::abs(v) < 1e5) {
-            if (v < minz) minz = v;
-            if (v > maxz) maxz = v;
-        }
-    }
-
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            float v = zbuffer[x + y * width];
-            if (std::abs(v) >= 1)
-                z.set(x, y, { 0, 0, 0, 255 });
-
-            float normalized = (v - minz) / (maxz - minz);
-            normalized = std::max(0.0f, std::min(1.0f, normalized));
-
-            unsigned char gray = static_cast<unsigned char>(255.0f * normalized);
-            z.set(x, y, { gray });
-        }
-    }
-
-    std::cout << "Detected Z range for visualization: [" << minz << ", " << maxz << "]" << std::endl;
-
-
-    z.write_tga_file("z.tga");
-    std::cout << "Render finished! output.tga saved." << std::endl;
-    system("start z.tga");
-
 
     return 0;
 }

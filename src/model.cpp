@@ -34,9 +34,35 @@ Model::Model(const char* filename) {
                     fs.push_back(f - 1);
 
                 }
-                faces_.push_back(fs);
+                if (fs.size() == 4) {
+                    qmhsV<int> tri1, tri2;
+
+                    tri1.push_back(fs[0]);
+                    tri1.push_back(fs[1]);
+                    tri1.push_back(fs[2]);
+                   
+                    tri2.push_back(fs[0]);
+                    tri2.push_back(fs[2]);
+                    tri2.push_back(fs[3]);
+
+                    faces_.push_back(tri1);
+                    faces_.push_back(tri2);
+                }
+                else if (fs.size() == 3) 
+                    faces_.push_back(fs); 
             }
-            else {}
+            else if (a == "vn") {
+                Vec4f v;
+                ss >> v.x >> v.y >> v.z;
+                v.w = 1.0f;
+                vertsN_.push_back(v);
+            }
+            else if (a == "vt") {
+                Vec4f v;
+                ss >> v.x >> v.y >> v.z;
+                v.w = 1.0f;
+                vertsT_.push_back(v);
+            }
         }
     }
 

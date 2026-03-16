@@ -5,7 +5,7 @@
 #include <type_traits>
 
 
-// 向量定义
+// vector
 template <size_t Dim, typename T> struct vec {
     T data[Dim];
     vec() { for (size_t i = 0; i < Dim; i++) data[i] = T(); }
@@ -53,7 +53,7 @@ template <size_t Dim, typename T> vec<Dim, T> operator-(vec<Dim, T> lhs, const v
     return lhs;
 }
 
-// 点积
+// dot
 template <size_t Dim, typename T> T operator*(const vec<Dim, T>& lhs, const vec<Dim, T>& rhs) {
     T ret = T();
     for (size_t i = 0; i < Dim; i++) ret += lhs[i] * rhs[i];
@@ -65,7 +65,7 @@ template <size_t Dim, typename T> T dot(const vec<Dim, T>& lhs, const vec<Dim, T
 }
 
 
-
+//mat *
 template <size_t Dim, typename T, typename U,
     typename = std::enable_if_t<std::is_arithmetic<U>::value>>
     vec<Dim, T> operator*(const U& lhs, vec<Dim, T> rhs) {
@@ -94,7 +94,7 @@ template <size_t Dim, typename T> std::ostream& operator<<(std::ostream& out, co
 }
 
 
-
+//cross
 template <typename T> T cross(vec<2, T> v1, vec<2, T> v2) {
     return v1.x * v2.y - v1.y * v2.x;
 }
