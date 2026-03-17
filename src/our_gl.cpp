@@ -110,6 +110,8 @@ void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2,
     }
 }
 
+
+
 void::tinfgl::drawZ(qmhsV<float>& zbuffer, int width, int height, TGAImage z) {
     
     float minz = std::numeric_limits<float>::max(), maxz = -std::numeric_limits<float>::max();
