@@ -9,10 +9,16 @@
 class Model {
 
 public:
+	//parsing the obj
+	struct VertexData {
+		int id;
+		int n;
+		int t;
+	};
 	qmhsV<Vec4f> verts_;
 	qmhsV<Vec4f> vertsN_;
 	qmhsV<Vec4f> vertsT_;
-	qmhsV<qmhsV<int>> faces_;
+	qmhsV<qmhsV<VertexData>> faces_;
 	float min_x = 1e9, max_x = -1e9;
 	float min_y = 1e9, max_y = -1e9;
 	float min_z = 1e9, max_z = -1e9;

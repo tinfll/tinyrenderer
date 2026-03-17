@@ -1,6 +1,7 @@
 ﻿#include <fstream>
 #include <sstream>
 #include <model.h>
+#include <stdio.h>
 
 Model::Model(const char* filename) {
     std::ifstream in;
@@ -26,30 +27,31 @@ Model::Model(const char* filename) {
                 verts_.push_back(v);
             }
             else if (a == "f") {
-                qmhsV<int> fs;
-                int f;
+                qmhsV<VertexData> fs;
                 std::string s;
+
                 while (ss >> s) {
-                    f = std::stoi(s);
-                    fs.push_back(f - 1);
+                    int v, t, n;
+                    VertexData vi = { -1, -1, -1 };
+                    if (sscanf(s.c_str(), "%d/%d/%d", &v, &t, &n) == 3)//my obj just invovled these.
+                    {
+                        vi.id = v - 1;
+                        vi.t = t - 1;
+                        vi.n = n - 1;
+                    }                        
+                    fs.push_back(vi);
 
                 }
                 if (fs.size() == 4) {
-                    qmhsV<int> tri1, tri2;
-
-                    tri1.push_back(fs[0]);
-                    tri1.push_back(fs[1]);
-                    tri1.push_back(fs[2]);
-                   
-                    tri2.push_back(fs[0]);
-                    tri2.push_back(fs[2]);
-                    tri2.push_back(fs[3]);
-
+                    qmhsV<VertexData> tri1, tri2;
+                    tri1.push_back(fs[0]); tri1.push_back(fs[1]); tri1.push_back(fs[2]);
+                    tri2.push_back(fs[0]); tri2.push_back(fs[2]); tri2.push_back(fs[3]);
                     faces_.push_back(tri1);
                     faces_.push_back(tri2);
                 }
-                else if (fs.size() == 3) 
-                    faces_.push_back(fs); 
+                else if (fs.size() == 3) {
+                    faces_.push_back(fs);
+                }
             }
             else if (a == "vn") {
                 Vec4f v;
@@ -65,7 +67,32 @@ Model::Model(const char* filename) {
             }
         }
     }
+    
+    //NORMALS SMOOTH
+    //vertsN_.resize(verts_.size());
+    //for (int i = 0; i < vertsN_.size(); ++i)
+    //    vertsN_[i] = { 0.0f, 0.0f, 0.0f };
+    //for (int i = 0; i < faces_.size(); ++i) {
+      /*  qmhsV<VertexData> f = faces_[i];
 
+        if (f.size() == 3) {
+            Vec4f v0 = verts_[f[0]];
+            Vec4f v1 = verts_[f[1]];
+            Vec4f v2 = verts_[f[2]];
+
+            Vec3f AB = { v1.x - v0.x, v1.y - v0.y, v1.z - v0.z };
+            Vec3f AC = { v2.x - v0.x, v2.y - v0.y, v2.z - v0.z };
+            Vec3f N0 = cross(AB, AC).normalize();
+
+            vertsN_[f[0]] = vertsN_[f[0]] + N0;
+            vertsN_[f[1]] = vertsN_[f[1]] + N0;
+            vertsN_[f[2]] = vertsN_[f[2]] + N0;
+        }
+    }
+    for (int i = 0; i < vertsN_.size(); ++i)
+        vertsN_[i] = vertsN_[i].normalize();
+    std::cout << "has normal successfully" << std::endl;
+    */
     for (int i = 0; i < verts_.size(); i++) {
 		Vec4f v = verts_[i];
         if (v.x < min_x) min_x = v.x;

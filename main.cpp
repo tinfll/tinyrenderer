@@ -36,30 +36,7 @@ TGAColor qcolor() {
     return color;
 }
 
-struct RandomShader : public IShader {
-    const Model& model;
-    Matrix4f uniform_M;
-    TGAColor color = {};
-    RandomShader(const Model& m, Matrix4f M) : model(m), uniform_M(M)  {}
 
-    virtual Vec4f vertex(const int iface, int nthvert)  {
-        Vec4f v = model.verts_[model.faces_[iface][nthvert]];
-        Vec4f gl_Vertex = { v.x, v.y, v.z, 0.0f };
-        Vec4f gl_Position = modelv * perspo * gl_Vertex;
-        return uniform_M * gl_Vertex;
-    }
-    virtual Vec4f vertexN(const int iface, int nthvert) {
-        Vec4f v = model.vertsN_[model.faces_[iface][nthvert]];
-        Vec4f gl_VertexN = { v.x, v.y, v.z, 1.0f };
-        Vec4f gl_Position = modelv * perspo * gl_VertexN;
-        return uniform_M * gl_VertexN;
-    }
-
-    virtual std::pair<bool, TGAColor> fragment(const Vec3f bar) const {
-        TGAColor c = qcolor();
-        return { false, c };
-    }
-};
 
 struct PhongShader : IShader {
     const Model& model;
@@ -67,22 +44,23 @@ struct PhongShader : IShader {
     Matrix4f modelM;
     Vec3f L;
     Vec3f cameraPos;
-    Vec3f N;
+    //Vec3f N;
     PhongShader(const Model& m, Matrix4f M, Matrix4f modelM, Vec3f L, Vec3f cameraPos) : model(m), uniform_M(M), modelM(modelM), L(L), cameraPos(cameraPos){}
     
     mat<3, 3, float> PV;//worldPos
-    //mat<3, 3, float> NV;
+    mat<3, 3, float> NV;
 
     virtual Vec4f vertex(const int iface, int nthvert) override{
-        Vec4f v = model.verts_[model.faces_[iface][nthvert]];
-        //Vec4f vn = model.vertsN_[model.faces_[iface][nthvert]];
+        Vec4f v = model.verts_[model.faces_[iface][nthvert].id];
+        Vec4f vn = model.vertsN_[model.faces_[iface][nthvert].n];
         PV[0][nthvert] = (modelM * v).x;
         PV[1][nthvert] = (modelM * v).y;
         PV[2][nthvert] = (modelM * v).z;
 
-        //NV[0][nthvert] = (modelM * vn).x;
-        //NV[1][nthvert] = (modelM * vn).y;
-        //NV[2][nthvert] = (modelM * vn).x;
+
+        NV[0][nthvert] = (modelM * Vec4f(vn.x, vn.y, vn.z, 0.0f)).x;
+        NV[1][nthvert] = (modelM * Vec4f(vn.x, vn.y, vn.z, 0.0f)).y;
+        NV[2][nthvert] = (modelM * Vec4f(vn.x, vn.y, vn.z, 0.0f)).z;
         
         Vec4f gl_Vertex = { v.x, v.y, v.z, 1.0f };
         Vec4f gl_Position = modelv * perspo * gl_Vertex;
@@ -91,7 +69,7 @@ struct PhongShader : IShader {
     }
     virtual std::pair<bool, TGAColor> fragment(const Vec3f bar) const{
         Vec3f P = Vec3f(PV * bar);
-        //Vec3f N = Vec3f(NV * bar).normalize();
+        Vec3f N = Vec3f(NV * bar).normalize();
         Vec3f V = (P - cameraPos).normalize();
         float cosineA = dot(N, L);//diffuse
         float diffuse = cosineA;
@@ -105,9 +83,9 @@ struct PhongShader : IShader {
         TGAColor specularColor = white;
 
         TGAColor finColor = {
-            static_cast<unsigned char>(std::min(255.0f, 255.0f * i)),
-            static_cast<unsigned char>(std::min(255.0f, 255.0f * i)),
-            static_cast<unsigned char>(std::min(255.0f, 255.0f * i)),
+            static_cast<unsigned char>(std::clamp(255.0f * i, 0.0f, 255.0f)),
+            static_cast<unsigned char>(std::clamp(255.0f * i, 0.0f, 255.0f)),
+            static_cast<unsigned char>(std::clamp(255.0f * i, 0.0f, 255.0f)),
             255
         };
 
@@ -116,14 +94,14 @@ struct PhongShader : IShader {
 };
 
 int main(int argc, char** argv) {
-    Model qmhs("unity.obj");
+    Model qmhs("Adefault.obj");
     tinfgl render;
 
     constexpr int width = 800;
     constexpr int height = 800;
-     Vec3f eye = { -1, 0, 2 }; 
-     Vec3f center = { 0, 0, 0 }; 
-     Vec3f  up = { 0, 1, 0 }; 
+     Vec3f eye = { -3, 2, 5 }; 
+     Vec3f center = { 0, 1, 0 }; 
+     Vec3f  up = { 0, 0.5, 0 }; 
 
     TGAImage image(width, height, TGAImage::RGB);
     TGAImage z(width, height, TGAImage::GRAYSCALE);
@@ -139,36 +117,26 @@ int main(int argc, char** argv) {
     Matrix4f M = viewp * perspo * modelv;
 
     //RandomShader shader(qmhs, M);
+    //directional Light
     Vec3f L = { 1.0, 1.0, 1.0 };
+    L = L.normalize();
     PhongShader phong(qmhs, M, modelv, L, eye);
 
 
     //wirefreame rendering
     for (auto& face : qmhs.faces_) {
-        qmhsV<int> fs = face;
+        qmhsV<Model::VertexData> fs = face;
         for (int j = 0; j < fs.size(); j++) {
-            int f = fs[j], k = fs[(j + 1) % fs.size()];
+            int f = fs[j].id, k = fs[(j + 1) % fs.size()].id;
             line(qmhs.verts_[f].x, qmhs.verts_[f].y,
                 qmhs.verts_[k].x, qmhs.verts_[k].y,
                 image, blue);
         }
     }
-    //directional Light
     //raster
     for (int i = 0; i < qmhs.faces_.size(); ++i) {
         TGAColor rnd = qcolor();
-        qmhsV<int> fs = qmhs.faces_[i];
-        Vec4f v0 = qmhs.verts_[fs[0]];
-        Vec4f v1 = qmhs.verts_[fs[1]];
-        Vec4f v2 = qmhs.verts_[fs[2]];
-
-        Vec3f AB = { v1.x - v0.x, v1.y - v0.y, v1.z - v0.z };
-        Vec3f AC = { v2.x - v0.x, v2.y - v0.y, v2.z - v0.z };
-        Vec3f N0 = cross(AB, AC).normalize();
-        Vec4f N4 = Vec4f(N0.x, N0.y, N0.z, 0.0f);
-        N4 = modelv.invert_transpose() * N4;
-        phong.N = Vec3f(N4.x, N4.y, N4.z);
-        
+        qmhsV<Model::VertexData> fs = qmhs.faces_[i];
         Vec4f clip_coords[3];
         Vec4f clip_coordsn[3];
         for (int j = 0; j < 3; j++) 
