@@ -125,7 +125,9 @@ public:
         }
     }
     vec<col, T>& operator[](const size_t i) { assert(i <  row); return rows[i]; }
+
     const vec<col, T>& operator[](const size_t i) const { assert(i < row); return rows[i]; }
+    
     vec<row, T> Ccol(const size_t i) const {
         assert(i < col);
         vec<row, T> ret;
@@ -159,6 +161,7 @@ public:
         float d = det();
         if (std::abs(d) < 1e-6) return res;
 
+        //3x3
         res[0][0] = (*this)[1][1] * (*this)[2][2] - (*this)[1][2] * (*this)[2][1];
         res[0][1] = (*this)[0][2] * (*this)[2][1] - (*this)[0][1] * (*this)[2][2];
         res[0][2] = (*this)[0][1] * (*this)[1][2] - (*this)[0][2] * (*this)[1][1];
@@ -183,6 +186,7 @@ public:
     }
 
 };
+
 
 template <size_t row, size_t col, typename T> vec<row, T> operator*(const mat<row, col, T>& lhs, const vec<col, T>& rhs) {
     vec<row, T> ret;
