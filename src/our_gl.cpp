@@ -2,26 +2,54 @@
 
 
 qmhsV<float> zbuffer;
+qmhsV<float> zbuffer2;
 Matrix4f modelv;
 Matrix4f perspo;
 Matrix4f viewp;
+Matrix4f Lmodelv;
+Matrix4f Lperspo;
+
 
 void tinfgl::lookat(const Vec3f eye, const Vec3f center, const Vec3f up) {
     Vec3f n = (eye - center).normalize();
     Vec3f l = (cross(up, n)).normalize();
     Vec3f m = (cross(n, l)).normalize();
-    modelv = Matrix4f{ l.x,l.y,l.z,0.0f, m.x,m.y,m.z,0.0f, n.x,n.y,n.z,0.0f, 0.0f,0.0f,0.0f,1.0f } *
-        Matrix4f{1, 0, 0, -center.x,  
-                 0, 1, 0, -center.y , 
-                 0, 0, 1, -center.z , 
+    modelv = Matrix4f{ l.x, l.y, l.z, 0.0f, 
+                       m.x, m.y, m.z, 0.0f, 
+                       n.x, n.y, n.z, 0.0f, 
+                       0.0f,0.0f,0.0f,1.0f } *
+                                             Matrix4f{1, 0, 0, -center.x,  
+                                                      0, 1, 0, -center.y , 
+                                                      0, 0, 1, -center.z , 
+                                                      0, 0, 0, 1 };
+}
+void tinfgl::lookatL(const Vec3f eye, const Vec3f center, const Vec3f up) {
+    Vec3f n = (eye - center).normalize();
+    Vec3f l = (cross(up, n)).normalize();
+    Vec3f m = (cross(n, l)).normalize();
+    Lmodelv = Matrix4f{ l.x, l.y, l.z, 0.0f,
+                       m.x, m.y, m.z, 0.0f,
+                       n.x, n.y, n.z, 0.0f,
+                       0.0f,0.0f,0.0f,1.0f } *
+        Matrix4f{ 1, 0, 0, -center.x,
+                 0, 1, 0, -center.y ,
+                 0, 0, 1, -center.z ,
                  0, 0, 0, 1 };
 }
+
 
 void tinfgl::init_perspective(const float f) {
     perspo = { 1, 0, 0, 0,
                0, 1, 0, 0,
                0, 0, 1, 0,
                0, 0, -1/f, 1 };
+}
+
+void tinfgl::init_Lperspo(const float f) {
+    Lperspo = { 1.0f / f, 0,    0,     0,
+               0    , 1.0f / f,0,     0,
+               0    , 0,    1.0f / f, 0,
+               0    , 0,    0,     1 };
 }
 
 void tinfgl::init_viewport(const int x, const int y, const int width, const int height) {
@@ -50,6 +78,8 @@ void tinfgl::init_viewport(const int x, const int y, const int width, const int 
 void tinfgl::initZ(int width, int height) {
     zbuffer.clear();
     zbuffer.resize(width * height, -std::numeric_limits<float>::max());
+    zbuffer2.clear();
+    zbuffer2.resize(width * height, -std::numeric_limits<float>::max());
 }
 
 void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
@@ -109,6 +139,32 @@ void tinfgl::rasterization(Vec4f a0, Vec4f a1, Vec4f a2,
                     zbuffer[idx] = zb;
                     image.set(i, j, color);
                 }
+            }
+        }
+    }
+}
+
+void tinfgl::rasterizationL(Vec4f a0, Vec4f a1, Vec4f a2, int width, int height) {
+    Vec4f ndc[3] = { a0 / a0.w, a1 / a1.w, a2 / a2.w };
+    int minx_f = std::floor(std::min({ a0.x, a1.x, a2.x }));
+    int maxx_f = std::ceil(std::max({ a0.x, a1.x, a2.x }));
+    int miny_f = std::floor(std::min({ a0.y, a1.y, a2.y }));
+    int maxy_f = std::ceil(std::max({ a0.y, a1.y, a2.y }));
+    Matrix3f ABC = { a0.x, a1.x, a2.x,
+                   a0.y, a1.y, a2.y,
+                   1, 1, 1 };
+    if (ABC.det() < 1) return;
+
+    for (int i = std::max(0, minx_f); i < std::min(width - 1, maxx_f); i++) {
+        for (int j = std::max(0, miny_f); j < std::min(height - 1, maxy_f); j++) {
+            Vec3f a = ABC.invert() * Vec3f(static_cast<float>(i), static_cast<float>(j), 1.);
+
+            if (a.x < -0.01 || a.y < -0.01 || a.z < -0.01) continue;
+            float zb = a * Vec3f(ndc[0].z, ndc[1].z, ndc[2].z);
+            int idx = i + j * width;
+            if (zb >= zbuffer2[idx]) {
+                zbuffer2[idx] = zb;
+                    zbuffer2[idx] = zb;
             }
         }
     }

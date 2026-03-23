@@ -12,9 +12,6 @@
 #include "geometry.h"
 #include "myVector.h"
 
-extern qmhsV<float> zbuffer;
-
-
 constexpr TGAColor blue = { 255, 128,  64, 255 };
 constexpr TGAColor white = { 255, 255, 255, 255 };
 constexpr TGAColor Black = { 0, 0, 0, 255 };
@@ -42,13 +39,23 @@ struct PhongShader : IShader {
     const Model& model;
     Matrix4f uniform_M;
     Matrix4f modelM;
+    Matrix4f viewp;
     Vec3f L;
     Vec3f cameraPos;
     TGAImage Albedo;
     TGAImage NM;
-    PhongShader(const Model& m, Matrix4f M, Matrix4f modelM, Vec3f L, Vec3f cameraPos, TGAImage tex, TGAImage NM) : model(m), uniform_M(M), modelM(modelM), L(L), cameraPos(cameraPos), Albedo(tex), NM(NM){}
+    float width;
+    float height;
+    qmhsV<float> zL;
+
+    Matrix4f modelL; //shadowmap
+
+    PhongShader(const Model& m, Matrix4f M, Matrix4f modelM, Matrix4f modelL, Matrix4f viewp, 
+                Vec3f L, Vec3f cameraPos, TGAImage tex, TGAImage NM, qmhsV<float> zL, 
+                float width, float height) : model(m), uniform_M(M), modelM(modelM), viewp(viewp), modelL(modelL), L(L), cameraPos(cameraPos), Albedo(tex), NM(NM), zL(zL), width(width), height(height){}
     
     mat<3, 3, float> PV;//worldPos
+    mat<3, 3, float> PL;
     mat<3, 3, float> NV;
     mat<2, 3, float> UV;
 
@@ -72,6 +79,12 @@ struct PhongShader : IShader {
         PV[1][nthvert] = (modelM * v).y;
         PV[2][nthvert] = (modelM * v).z;
 
+        PL[0][nthvert] = (modelL * v).x / (modelL * v).w;
+        PL[1][nthvert] = (modelL * v).y / (modelL * v).w;
+        PL[2][nthvert] = (modelL * v).z / (modelL * v).w;
+
+        //LV[3 * iface + nthvert - 3] = (Lmodelv * v).z;
+        //what are you doing?
 
         NV[0][nthvert] = (modelM.invert_transpose() * Vec4f(vn.x, vn.y, vn.z, 0.0f)).x;
         NV[1][nthvert] = (modelM.invert_transpose() * Vec4f(vn.x, vn.y, vn.z, 0.0f)).y;
@@ -114,6 +127,20 @@ struct PhongShader : IShader {
         tb = e * u_inv;//through some linear algebra transformation
 
         Vec3f P = Vec3f(PV * bar);
+        Vec3f pL = Vec3f(PL * bar);
+        
+        float shadow = 1.0f;
+        int minx = std::floor(pL.x);
+        int maxx = std::ceil(pL.x);
+        int miny = std::floor(pL.y);
+        int maxy = std::ceil(pL.y);
+        
+        int sx = std::max(0, std::min(static_cast<int>(pL.x), static_cast<int>(width)));
+        int sy = std::max(0, std::min(static_cast<int>(pL.y), static_cast<int>(height)));
+        float z_stored = zL[sx + sy * width];
+        if (pL.z < z_stored - 0.02f)  
+                shadow = 0.3f;
+
         Vec3f N = Vec3f(NV * bar).normalize();
         Vec2f uv = UV * bar;
 
@@ -146,7 +173,7 @@ struct PhongShader : IShader {
 
         float ambient = 0.1f;
         float diffuseTerm = 0.6f;
-        float i = ambient + diffuse * 0.6f + specular * 0.3f;
+        float i = (ambient + diffuse * 0.6f + specular * 0.3f) * shadow;
         TGAColor basecolor = Albedo.get(tex_x, tex_y);
         TGAColor specularColor = white;
 
@@ -161,6 +188,25 @@ struct PhongShader : IShader {
     }
 };
 
+struct shadowmap : IShader {
+    const Model& model;
+    Matrix4f uniform_LM;
+    shadowmap(const Model& m, Matrix4f M) : model(m), uniform_LM(M){}
+
+    virtual Vec4f vertex(const int iface, int nthvert) override {
+        Model::VertexData vd = model.faces_[iface][nthvert];
+        Vec4f v = (vd.id >= 0 && vd.id < model.verts_.size())
+            ? model.verts_[vd.id]
+            : Vec4f(0.0f, 0.0f, 0.0f, 1.0f);
+        Vec4f gl_Vertex = { v.x, v.y, v.z, 1.0f };
+        return uniform_LM * gl_Vertex;
+    }
+    virtual std::pair<bool, TGAColor> fragment(const Vec3f bar) const{
+        TGAColor fincolor = white;
+        return{ true, fincolor };
+    }
+};
+
 int main(int argc, char** argv) {
     Model Aface("Adefaultface.obj");
     Model Abody("Adefaultbody.obj");
@@ -171,7 +217,7 @@ int main(int argc, char** argv) {
     constexpr int height = 800;
      Vec3f eye = { -3, 2, 5 }; 
      Vec3f center = { 0, 1, 0 }; 
-     Vec3f  up = { 0, 0.5, 0 }; 
+     Vec3f  up = { 0, 1, 0 }; 
 
     TGAImage image(width, height, TGAImage::RGB);
     TGAImage z(width, height, TGAImage::GRAYSCALE);
@@ -184,10 +230,10 @@ int main(int argc, char** argv) {
     face.read_tga_file("Image_0.tga");
     body.read_tga_file("Image_3.tga");
 
-    TGAColor bg = { 30, 30, 40, 255 };  // whatever color you want
+    TGAColor bg = { 30, 30, 40, 255 };
     for (int x = 0; x < width; x++)
         for (int y = 0; y < height; y++)
-            image.set(x, y, bg);
+            image.set(x, y, white);
 
 
     bool a = false, b = false;
@@ -200,24 +246,45 @@ int main(int argc, char** argv) {
     render.initZ(width, height);
 
     Matrix4f M = viewp * perspo * modelv;
-
+    
     //directional Light
     Vec3f L = { 1.0, 1.0, 1.0 };
     L = L.normalize();
-    PhongShader phong(Abody, M, modelv, L, eye, body, NMb);
-    PhongShader phong1(Aface, M, modelv, L, eye, face, NMf);
+    Vec3f Leye = center + L * 5.0f;
+    render.lookatL(Leye, center, up);
+    render.init_Lperspo(3.0f);
+    Matrix4f LM = Lperspo * viewp * Lmodelv;
+
+    shadowmap s(Abody, LM);
+    for (int i = 0; i < Abody.faces_.size(); ++i) {
+        qmhsV<Model::VertexData> fs = Abody.faces_[i];
+        Vec4f clip_coords[3];
+        for (int j = 0; j < 3; ++j)
+            clip_coords[j] = s.vertex(i, j);
+        render.rasterizationL(clip_coords[0], clip_coords[1], clip_coords[2], width, height);
+    }
+  
+    shadowmap s1(Aface, LM);
+    for (int i = 0; i < Aface.faces_.size(); ++i) {
+        qmhsV<Model::VertexData> fs = Aface.faces_[i];
+        Vec4f clip_coords[3];
+        for (int j = 0; j < 3; ++j)
+            clip_coords[j] = s1.vertex(i, j);
+        render.rasterizationL(clip_coords[0], clip_coords[1], clip_coords[2], width, height);
+    }
+
+    PhongShader phong(Abody, M, modelv, LM, viewp, L, eye, body, NMb, zbuffer2, width, height);
+    PhongShader phong1(Aface, M, modelv, LM, viewp, L, eye, face, NMf, zbuffer2, width, height);
 
     //raster
     for (int i = 0; i < Abody.faces_.size(); ++i) {
         qmhsV<Model::VertexData> fs = Abody.faces_[i];
         Vec4f clip_coords[3];
-        Vec4f clip_coordsn[3];
         for (int j = 0; j < 3; ++j) 
             clip_coords[j] = phong.vertex(i, j);
-            
+        
         render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2],
                             image, z, width, height, phong);
-       
     } 
     
     //raster
@@ -230,7 +297,6 @@ int main(int argc, char** argv) {
      
         render.rasterization(clip_coords[0], clip_coords[1], clip_coords[2],
             image, z, width, height, phong1);
-
     }
 
 
