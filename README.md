@@ -8,7 +8,7 @@ I create different switches to match different stage :)
 I think the rendering photo just display all troubles I have met.
 (Vroid Hub model(include textures/TBN normalmapping)
 .....
-After sorting, I decide to place my idol moment in [Catchhaa.md](Catchhaa.md).
+After sorting, I decide to place my idol moments in [Catchhaa.md](Catchhaa.md).
 Or see in my blog [tinyrenderer](https://tingfengkanyue.vercel.app/posts/tinyrenderer.html)
 
 Here is some result in this Readme.md
@@ -50,12 +50,13 @@ Here is some result in this Readme.md
 
 
 ## phong
-
-![](renderProcess/phong.png)
+![](renderProcess/beforesmooth.png)
 
 
 ## More data: texture/normal
-
++ smooth
+![](renderProcess/phong.png)
++ textures
 ![](renderProcess/textures.png)
 (vroid hub normal map is TBN map so...)
 
