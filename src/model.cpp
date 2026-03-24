@@ -1,6 +1,7 @@
 ﻿#include <fstream>
 #include <sstream>
 #include <model.h>
+#include <stdio.h>
 
 Model::Model(const char* filename) {
     std::ifstream in;
@@ -20,38 +21,71 @@ Model::Model(const char* filename) {
 
         while (ss >> a) {
             if (a == "v") {
-                Vec3f v;
+                Vec4f v;
                 ss >> v.x >> v.y >> v.z;
+                v.w = 1.0f;
                 verts_.push_back(v);
             }
             else if (a == "f") {
-                std::vector<int> fs;
-                int f;
+                qmhsV<VertexData> fs;
                 std::string s;
+
                 while (ss >> s) {
-                    f = std::stoi(s);
-                    fs.push_back(f - 1);
+                    int v, t, n;
+                    VertexData vi = { -1, -1, -1 };
+                    if (sscanf(s.c_str(), "%d/%d/%d", &v, &t, &n) == 3)//my obj just invovled these.
+                    {
+                        vi.id = v - 1;
+                        vi.t = t - 1;
+                        vi.n = n - 1;
+                    }                        
+                    fs.push_back(vi);
 
                 }
-                faces_.push_back(fs);
+                if (fs.size() == 4) {
+                    qmhsV<VertexData> tri1, tri2;
+                    tri1.push_back(fs[0]); tri1.push_back(fs[1]); tri1.push_back(fs[2]);
+                    tri2.push_back(fs[0]); tri2.push_back(fs[2]); tri2.push_back(fs[3]);
+                    faces_.push_back(tri1);
+                    faces_.push_back(tri2);
+                }
+                else if (fs.size() == 3) {
+                    faces_.push_back(fs);
+                }
             }
-            else {}
+            else if (a == "vt") {
+                Vec4f v;
+                ss >> v.x >> v.y;
+                v.z = 0.0f;
+                v.w = 0.0f;     //correctw/z
+                vertsT_.push_back(v);
+            }
+            else if (a == "vn") {
+                Vec4f v;
+                ss >> v.x >> v.y >> v.z;
+                v.w = 0.0f;     //correct
+                vertsN_.push_back(v);
+            }
         }
     }
-
-
     
-
     for (int i = 0; i < verts_.size(); i++) {
-		Vec3f v = verts_[i];
+		Vec4f v = verts_[i];
         if (v.x < min_x) min_x = v.x;
         if (v.x > max_x) max_x = v.x;
-        if (v.z < min_y) min_y = v.y;
-        if (v.z > max_y) max_y = v.y;
+        if (v.y < min_y) min_y = v.y;
+        if (v.y > max_y) max_y = v.y;
+        if (v.z < min_z) min_z = v.z;
+        if (v.z > max_z) max_z = v.z;
     }
 
     cx = (min_x + max_x) / 2.0f;
     cy = (min_y + max_y) / 2.0f;
+    cz = (min_z + max_z) / 2.0f;
+
+    dx = (-min_x + max_x) / 2.0f;
+    dy = (-min_y + max_y) / 2.0f;
+    dz = (-min_z + max_z) / 2.0f;
 
     mw = max_x - min_x;
     mh = max_y - min_y;
