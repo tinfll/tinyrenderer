@@ -20,12 +20,15 @@ Here is some result in this Readme.md
 ## Bresenham's line drawing
 
 + note the axis and fov
-![](renderProcess/line.png)
+
+![](renderProcess/line.webp)
+
 
 ## Triangle rasterization
+
 + note your obj whether is all triangles or have quads
 
-![](renderProcess/rasterization1.png)
+![](renderProcess/rasterization1.webp)
 
 
 
@@ -34,46 +37,47 @@ Here is some result in this Readme.md
 ...
 
 
+
 ## hidden face removal
 
-![](renderProcess/rasterization2.png)
+![](renderProcess/rasterization2.webp)
 
 
 ## Depth interpolation
 
-![](renderProcess/z.png)
+![](renderProcess/z.webp)
 
 
 ## naive camera handling
 
-![](renderProcess/na.png)
+![](renderProcess/na.webp)
 
 
 ## phong
 
-![](renderProcess/beforesmooth.png)
+![](renderProcess/beforesmooth.webp)
 
 
 ## More data: texture/normal
 
 + smooth
 
-![](renderProcess/phong.png)
+![](renderProcess/phong.webp)
 
 + textures
 
-![](renderProcess/textures.png)
+![](renderProcess/textures.webp)
 
 (vroid hub normal map is TBN map so...)
 
 ## Tangent space
 
-![](renderProcess/TBN.png)
+![](renderProcess/TBN.webp)
 
 
 ## Shadow Mapping
 
-![](renderProcess/shadowmap.png)
+![](renderProcess/shadowmap.webp)
 
 
 
